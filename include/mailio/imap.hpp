@@ -169,28 +169,19 @@ public:
         search_condition_t(key_type condition_key, value_type condition_value = value_type());
     };
 
-    /**
-    Creating a connection to a server.
-
-    @param hostname Hostname of the server.
-    @param port     Port of the server.
-    @param timeout  Network timeout after which I/O operations fail. If zero, then no timeout is set i.e. I/O operations are synchronous.
-    @throw *        `dialog::dialog(const string&, unsigned)`.
-    **/
-    imap(const std::string& hostname, unsigned port, std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
 
     /**
     Sending the logout command and closing the connection.
     **/
-    virtual ~imap();
+    virtual ~imap() = default;
 
-    imap(const imap&) = delete;
+    imap(imap&&) = default;
 
-    imap(imap&&) = delete;
+    imap &operator=(imap&&) = default;
 
-    void operator=(const imap&) = delete;
+    imap(const imap&) = default;
 
-    void operator=(imap&&) = delete;
+    imap &operator=(const imap&) = default;
 
     /**
     Authenticating with the given credentials.
@@ -213,7 +204,7 @@ public:
     @return            Mailbox statistics.
     @throw imap_error  Selecting mailbox failure.
     @throw imap_error  Parsing failure.
-    @throw *           `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *           `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo              Add server error messages to exceptions.
     @todo              Catch exceptions of `stoul` function.
     **/
@@ -227,7 +218,7 @@ public:
     @return           Mailbox statistics.
     @throw imap_error Selecting mailbox failure.
     @throw imap_error Parsing failure.
-    @throw *          `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *          `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo             Add server error messages to exceptions.
     **/
     mailbox_stat_t select(const std::string& mailbox, bool read_only = false);
@@ -283,7 +274,7 @@ public:
     @throw imap_error     Fetching message failure.
     @throw imap_error     Parsing failure.
     @throw *              `parse_tag_result(const string&)`, `parse_response(const string&)`,
-                          `dialog::send(const string&)`, `dialog::receive()`, `message::parse(const string&, bool)`.
+                          `send(const string&)`, `receive()`, `message::parse(const string&, bool)`.
     @todo                 Add server error messages to exceptions.
     **/
     void fetch(const std::list<messages_range_t>& messages_range, std::map<unsigned long, message>& found_messages, bool is_uids = false,
@@ -303,7 +294,7 @@ public:
 
     @param folder_name Folder to append the message.
     @param msg         Message to append.
-    @throw imap_error  `Message appending failure.`, `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`,
+    @throw imap_error  `Message appending failure.`, `parse_tag_result(const string&)`, `send(const string&)`, `receive()`,
                        `message::format(std::string&, bool)`.
     **/
     void append(const std::string& folder_name, const message& msg);
@@ -318,7 +309,7 @@ public:
     @return           Mailbox statistics.
     @throw imap_error Parsing failure.
     @throw imap_error Getting statistics failure.
-    @throw *          `parse_tag_result(const string&)`, `parse_response(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *          `parse_tag_result(const string&)`, `parse_response(const string&)`, `send(const string&)`, `receive()`.
     @todo             Add server error messages to exceptions.
     @todo             Exceptions by `stoul()` should be rethrown as parsing failure.
     **/
@@ -343,7 +334,7 @@ public:
     @param is_uid     Using a message uid number instead of a message sequence number.
     @throw imap_error Deleting message failure.
     @throw imap_error Parsing failure.
-    @throw *          `select(const string&)`, `parse_tag_result(const string&)`, `remove(unsigned long, bool)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *          `select(const string&)`, `parse_tag_result(const string&)`, `remove(unsigned long, bool)`, `send(const string&)`, `receive()`.
     @todo             Add server error messages to exceptions.
     **/
     void remove(const std::string& mailbox, unsigned long message_no, bool is_uid = false);
@@ -366,7 +357,7 @@ public:
     @param is_uid     Using a message uid number instead of a message sequence number.
     @throw imap_error Deleting message failure.
     @throw imap_error Parsing failure.
-    @throw *          `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *          `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo             Add server error messages to exceptions.
     @todo             Catch exceptions of `stoul` function.
     **/
@@ -381,7 +372,7 @@ public:
     @param want_uids   Return a list of message UIDs instead of message sequence numbers.
     @throw imap_error  Search mailbox failure.
     @throw imap_error  Parsing failure.
-    @throw *           `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *           `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo              Add server error messages to exceptions.
     **/
     void search(const std::list<search_condition_t>& conditions, std::list<unsigned long>& results, bool want_uids = false);
@@ -393,7 +384,7 @@ public:
     @return            True if created, false if not.
     @throw imap_error  Parsing failure.
     @throw imap_error  Creating folder failure.
-    @throw *           `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *           `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo              Return status really needed?
     **/
     bool create_folder(const std::string& folder_name);
@@ -415,7 +406,7 @@ public:
     @return            Subfolder tree of the folder.
     @throw imap_error  Listing folders failure.
     @throw imap_error  Parsing failure.
-    @throw *           `folder_delimiter()`, `parse_tag_result`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *           `folder_delimiter()`, `parse_tag_result`, `send(const string&)`, `receive()`.
     **/
     mailbox_folder_t list_folders(const std::string& folder_name);
 
@@ -435,7 +426,7 @@ public:
     @return            True if deleted, false if not.
     @throw imap_error  Parsing failure.
     @throw imap_error  Deleting folder failure.
-    @throw *           `folder_delimiter()`, `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *           `folder_delimiter()`, `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo              Return status really needed?
     **/
     bool delete_folder(const std::string& folder_name);
@@ -458,7 +449,7 @@ public:
     @return            True if renaming is successful, false if not.
     @throw imap_error  Parsing failure.
     @throw imap_error  Renaming folder failure.
-    @throw *           `folder_delimiter()`, `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *           `folder_delimiter()`, `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo              Return status really needed?
     **/
     bool rename_folder(const std::string& old_name, const std::string& new_name);
@@ -481,11 +472,17 @@ public:
 
     @return           Folder delimiter.
     @throw imap_error Determining folder delimiter failure.
-    @throw *          `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *          `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     **/
     std::string folder_delimiter();
 
 protected:
+
+    imap();
+
+    virtual void send(const std::string& line) = 0;
+
+    virtual std::string receive(bool raw = false) = 0;
 
     /**
     Formatting range of IDs to a string.
@@ -589,7 +586,7 @@ protected:
     @return           The server greeting message.
     @throw imap_error Connection to server failure.
     @throw imap_error Parsing failure.
-    @throw *          `parse_tag_result(const string&)`, `dialog::receive()`.
+    @throw *          `parse_tag_result(const string&)`, `receive()`.
     @todo             Add server error messages to exceptions.
     **/
     std::string connect();
@@ -601,7 +598,7 @@ protected:
     @param password   Password to authenticate.
     @throw imap_error Authentication failure.
     @throw imap_error Parsing failure.
-    @throw *          `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *          `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo             Add server error messages to exceptions.
     **/
     void auth_login(const std::string& username, const std::string& password);
@@ -614,7 +611,7 @@ protected:
     @param want_uids   Return a list of message uids instead of message sequence numbers.
     @throw imap_error  Search mailbox failure.
     @throw imap_error  Parsing failure.
-    @throw *           `parse_tag_result(const string&)`, `dialog::send(const string&)`, `dialog::receive()`.
+    @throw *           `parse_tag_result(const string&)`, `send(const string&)`, `receive()`.
     @todo              Add server error messages to exceptions.
     **/
     void search(const std::string& conditions, std::list<unsigned long>& results, bool want_uids = false);
@@ -737,11 +734,6 @@ protected:
     static std::string imap_date_to_string(const boost::gregorian::date& gregorian_date);
 
     /**
-    Dialog to use for send/receive operations.
-    **/
-    std::shared_ptr<dialog> _dlg;
-
-    /**
     Tag used to identify requests and responses.
     **/
     unsigned _tag;
@@ -848,11 +840,41 @@ protected:
     std::string::size_type _eols_no;
 };
 
+class MAILIO_EXPORT imapp : public imap
+{
+public:
+
+    /*Creating a connection to a server.
+
+    @param hostname Hostname of the server.
+    @param port     Port of the server.
+    @param timeout  Network timeout after which I/O operations fail. If zero, then no timeout is set i.e. I/O operations are synchronous.
+    @throw *        `comm(const string&, unsigned)`.
+        **/
+    imapp(const std::string& hostname, unsigned port, std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
+
+    /**
+    Sending the logout command and closing the connection.
+    **/
+    virtual ~imapp();
+
+    imapp(imapp&&) = default;
+
+    imapp &operator=(imapp&&) = default;
+
+protected:
+
+    virtual void send(const std::string& line);
+
+    virtual std::string receive(bool raw = false);
+ 
+    dialog _dlg;
+};
 
 /**
 Secure version of `imap` class.
 **/
-class MAILIO_EXPORT imaps : public imap
+class MAILIO_EXPORT imaps : public imapp
 {
 public:
 
@@ -872,7 +894,7 @@ public:
     @throw *        `imap::imap(const std::string&, unsigned)`.
     **/
     imaps(const std::string& hostname, unsigned port, std::chrono::milliseconds timeout = std::chrono::milliseconds(0));
-
+ 
     /**
     Sending the logout command and closing the connection.
 
@@ -880,13 +902,9 @@ public:
     **/
     virtual ~imaps() = default;
 
-    imaps(const imap&) = delete;
+    imaps(imaps&&) = default;
 
-    imaps(imaps&&) = delete;
-
-    void operator=(const imaps&) = delete;
-
-    void operator=(imaps&&) = delete;
+    imaps &operator=(imaps&&) = default;
 
     /**
     Authenticating with the given credentials.
@@ -905,7 +923,7 @@ protected:
 
     @throw imap_error Bad server response.
     @throw imap_error Start TLS refused by server.
-    @throw *          `parse_tag_result(const std::string&)`, `switch_to_ssl()`, `dialog::send(const std::string&)`, `dialog::receive()`.
+    @throw *          `parse_tag_result(const std::string&)`, `switch_to_ssl()`, `send(const std::string&)`, `receive()`.
     **/
     void start_tls();
 

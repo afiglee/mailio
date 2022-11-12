@@ -72,6 +72,30 @@ dialog::dialog(const dialog& other) : _hostname(move(other._hostname)), _port(ot
     _istrm = other._istrm;
 }
 
+/*++ NOT TESTED ++*/
+dialog::dialog(dialog &&other):
+	_port(other._port) 
+{
+	 _hostname = other._hostname;
+   _socket = move(other._socket);
+   _timer = other._timer;
+   _timeout = other._timeout;
+   _timer_expired = other._timer_expired;
+  _strmbuf = other._strmbuf;
+}
+
+dialog & dialog::operator=(dialog &&other)
+{
+	 _port = other._port; 
+	 _hostname = other._hostname;
+   _socket = move(other._socket);
+   _timer = other._timer;
+   _timeout = other._timeout;
+   _timer_expired = other._timer_expired;
+  _strmbuf = other._strmbuf;
+	return *this;
+}
+/*--NOT TESTED--*/
 
 void dialog::send(const string& line)
 {

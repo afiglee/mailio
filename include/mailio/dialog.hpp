@@ -59,11 +59,11 @@ public:
     **/
     virtual ~dialog() = default;
 
-    dialog(dialog&&) = delete;
+    dialog(dialog&&);
 
-    void operator=(const dialog&) = delete;
+    dialog &operator=(const dialog&) = delete;
 
-    void operator=(dialog&&) = delete;
+    dialog &operator=(dialog&&);
 
     /**
     Sending a line to network synchronously or asynchronously, depending of the timeout value.
@@ -152,12 +152,12 @@ protected:
     /**
     Server hostname.
     **/
-    const std::string _hostname;
+    std::string _hostname;
 
     /**
     Server port.
     **/
-    const unsigned int _port;
+    unsigned int _port;
 
     /**
     Asio input/output service.

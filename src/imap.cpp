@@ -69,6 +69,18 @@ const string imap::TOKEN_SEPARATOR_STR{" "};
 const string imap::QUOTED_STRING_SEPARATOR{"\""};
 
 
+imap::imap():
+    _tag(0),
+    _optional_part_state(false),
+    _atom_state(atom_state_t::NONE),
+    _parenthesis_list_counter(0),
+    _literal_state(string_literal_state_t::NONE),
+    _literal_bytes_read(0),
+    _eols_no(2)
+{
+
+}
+
 string imap::messages_range_to_string(imap::messages_range_t id_pair)
 {
     return to_string(id_pair.first) + (id_pair.second.has_value() ? RANGE_SEPARATOR + to_string(id_pair.second.value()) : RANGE_SEPARATOR + RANGE_ALL);
@@ -167,26 +179,6 @@ string imap::tag_result_response_t::to_string() const
     return tag + " " + result_s + " " + response;
 }
 
-
-imap::imap(const string& hostname, unsigned port, milliseconds timeout) :
-    _dlg(make_shared<dialog>(hostname, port, timeout)), _tag(0), _optional_part_state(false), _atom_state(atom_state_t::NONE),
-    _parenthesis_list_counter(0), _literal_state(string_literal_state_t::NONE), _literal_bytes_read(0), _eols_no(2)
-{
-}
-
-
-imap::~imap()
-{
-    try
-    {
-        _dlg->send(format("LOGOUT"));
-    }
-    catch (...)
-    {
-    }
-}
-
-
 string imap::authenticate(const string& username, const string& password, auth_method_t method)
 {
     string greeting = connect();
@@ -211,7 +203,7 @@ auto imap::select(const string& mailbox, bool read_only) -> mailbox_stat_t
         cmd = format("EXAMINE " + QUOTED_STRING_SEPARATOR + mailbox + QUOTED_STRING_SEPARATOR);
     else
         cmd = format("SELECT " + QUOTED_STRING_SEPARATOR + mailbox + QUOTED_STRING_SEPARATOR);
-    _dlg->send(cmd);
+    send(cmd);
 
     mailbox_stat_t stat;
     bool exists_found = false;
@@ -223,7 +215,7 @@ auto imap::select(const string& mailbox, bool read_only) -> mailbox_stat_t
         while (has_more)
         {
             reset_response_parser();
-            string line = _dlg->receive();
+            string line = receive();
             tag_result_response_t parsed_line = parse_tag_result(line);
             parse_response(parsed_line.response);
 
@@ -341,7 +333,7 @@ void imap::fetch(const list<messages_range_t>& messages_range, map<unsigned long
     if (is_uids)
         cmd.append("UID ");
     cmd.append("FETCH " + message_ids + TOKEN_SEPARATOR_STR + RFC822_TOKEN);
-    _dlg->send(format(cmd));
+    send(format(cmd));
 
     // Stores messages as string literals for parsing after the OK response.
     map<unsigned long, string> msg_str;
@@ -351,7 +343,7 @@ void imap::fetch(const list<messages_range_t>& messages_range, map<unsigned long
         while (has_more)
         {
             reset_response_parser();
-            string line = _dlg->receive();
+            string line = receive();
             tag_result_response_t parsed_line = parse_tag_result(line);
 
             if (parsed_line.tag == UNTAGGED_RESPONSE)
@@ -397,7 +389,7 @@ void imap::fetch(const list<messages_range_t>& messages_range, map<unsigned long
                     // Loop to read string literal.
                     while (_literal_state == string_literal_state_t::READING)
                     {
-                        string line = _dlg->receive(true);
+                        string line = receive(true);
                         if (!line.empty())
                             trim_eol(line);
                         parse_response(line);
@@ -405,7 +397,7 @@ void imap::fetch(const list<messages_range_t>& messages_range, map<unsigned long
                     // Closing parenthesis not yet read.
                     if (_literal_state == string_literal_state_t::DONE && _parenthesis_list_counter > 0)
                     {
-                        string line = _dlg->receive(true);
+                        string line = receive(true);
                         if (!line.empty())
                             trim_eol(line);
                         parse_response(line);
@@ -469,17 +461,17 @@ void imap::append(const string& folder_name, const message& msg)
 
     string cmd = "APPEND " + folder_name;
     cmd.append(" {" + to_string(msg_str.size()) + "}");
-    _dlg->send(format(cmd));
-    string line = _dlg->receive();
+    send(format(cmd));
+    string line = receive();
     tag_result_response_t parsed_line = parse_tag_result(line);
     if (parsed_line.result == tag_result_response_t::BAD || parsed_line.tag != CONTINUE_RESPONSE)
         throw imap_error("Message appending failure.");
 
-    _dlg->send(msg_str);
+    send(msg_str);
     bool has_more = true;
     while (has_more)
     {
-        line = _dlg->receive();
+        line = receive();
         tag_result_response_t parsed_line = parse_tag_result(line);
         if (parsed_line.tag == to_string(_tag))
         {
@@ -507,7 +499,7 @@ auto imap::statistics(const string& mailbox, unsigned int info) -> mailbox_stat_
         cmd += " uidvalidity";
     cmd += ")";
 
-    _dlg->send(format(cmd));
+    send(format(cmd));
     mailbox_stat_t stat;
 
     bool has_more = true;
@@ -516,7 +508,7 @@ auto imap::statistics(const string& mailbox, unsigned int info) -> mailbox_stat_
         while (has_more)
         {
             reset_response_parser();
-            string line = _dlg->receive();
+            string line = receive();
             tag_result_response_t parsed_line = parse_tag_result(line);
 
             if (parsed_line.tag == UNTAGGED_RESPONSE)
@@ -627,7 +619,7 @@ void imap::remove(unsigned long message_no, bool is_uid)
     if (is_uid)
         cmd.append("UID ");
     cmd.append("STORE " + to_string(message_no) + " +FLAGS (\\Deleted)");
-    _dlg->send(format(cmd));
+    send(format(cmd));
 
     bool has_more = true;
     try
@@ -635,7 +627,7 @@ void imap::remove(unsigned long message_no, bool is_uid)
         while (has_more)
         {
             reset_response_parser();
-            string line = _dlg->receive();
+            string line = receive();
             tag_result_response_t parsed_line = parse_tag_result(line);
 
             if (parsed_line.tag == UNTAGGED_RESPONSE)
@@ -696,8 +688,8 @@ void imap::remove(unsigned long message_no, bool is_uid)
                 else
                 {
                     reset_response_parser();
-                    _dlg->send(format("CLOSE"));
-                    string line = _dlg->receive();
+                    send(format("CLOSE"));
+                    string line = receive();
                     tag_result_response_t parsed_line = parse_tag_result(line);
 
                     if (!iequals(parsed_line.tag, to_string(_tag)))
@@ -737,9 +729,9 @@ void imap::search(const list<imap::search_condition_t>& conditions, list<unsigne
 
 bool imap::create_folder(const string& folder_name)
 {
-    _dlg->send(format("CREATE " + QUOTED_STRING_SEPARATOR + folder_name + QUOTED_STRING_SEPARATOR));
+    send(format("CREATE " + QUOTED_STRING_SEPARATOR + folder_name + QUOTED_STRING_SEPARATOR));
 
-    string line = _dlg->receive();
+    string line = receive();
     tag_result_response_t parsed_line = parse_tag_result(line);
     if (parsed_line.tag != to_string(_tag))
         throw imap_error("Parsing failure.");
@@ -763,7 +755,7 @@ bool imap::create_folder(const list<string>& folder_name)
 auto imap::list_folders(const string& folder_name) -> mailbox_folder_t
 {
     string delim = folder_delimiter();
-    _dlg->send(format("LIST " + QUOTED_STRING_SEPARATOR + QUOTED_STRING_SEPARATOR + TOKEN_SEPARATOR_STR + QUOTED_STRING_SEPARATOR + folder_name + "*" +
+    send(format("LIST " + QUOTED_STRING_SEPARATOR + QUOTED_STRING_SEPARATOR + TOKEN_SEPARATOR_STR + QUOTED_STRING_SEPARATOR + folder_name + "*" +
         QUOTED_STRING_SEPARATOR));
     mailbox_folder_t mailboxes;
 
@@ -772,7 +764,7 @@ auto imap::list_folders(const string& folder_name) -> mailbox_folder_t
     {
         while (has_more)
         {
-            string line = _dlg->receive();
+            string line = receive();
             tag_result_response_t parsed_line = parse_tag_result(line);
             parse_response(parsed_line.response);
             if (parsed_line.tag == UNTAGGED_RESPONSE)
@@ -833,9 +825,9 @@ auto imap::list_folders(const list<string>& folder_name) -> mailbox_folder_t
 
 bool imap::delete_folder(const string& folder_name)
 {
-    _dlg->send(format("DELETE " + QUOTED_STRING_SEPARATOR + folder_name + QUOTED_STRING_SEPARATOR));
+    send(format("DELETE " + QUOTED_STRING_SEPARATOR + folder_name + QUOTED_STRING_SEPARATOR));
 
-    string line = _dlg->receive();
+    string line = receive();
     tag_result_response_t parsed_line = parse_tag_result(line);
     if (parsed_line.tag != to_string(_tag))
         throw imap_error("Parsing failure.");
@@ -857,10 +849,10 @@ bool imap::delete_folder(const list<string>& folder_name)
 
 bool imap::rename_folder(const string& old_name, const string& new_name)
 {
-    _dlg->send(format("RENAME " + QUOTED_STRING_SEPARATOR + old_name + QUOTED_STRING_SEPARATOR + TOKEN_SEPARATOR_STR + QUOTED_STRING_SEPARATOR + new_name +
+    send(format("RENAME " + QUOTED_STRING_SEPARATOR + old_name + QUOTED_STRING_SEPARATOR + TOKEN_SEPARATOR_STR + QUOTED_STRING_SEPARATOR + new_name +
         QUOTED_STRING_SEPARATOR));
 
-    string line = _dlg->receive();
+    string line = receive();
     tag_result_response_t parsed_line = parse_tag_result(line);
     if (parsed_line.tag != to_string(_tag))
         throw imap_error("Parsing failure.");
@@ -884,7 +876,7 @@ bool imap::rename_folder(const list<string>& old_name, const list<string>& new_n
 string imap::connect()
 {
     // read greetings message
-    string line = _dlg->receive();
+    string line = receive();
     tag_result_response_t parsed_line = parse_tag_result(line);
 
     if (parsed_line.tag != UNTAGGED_RESPONSE)
@@ -898,12 +890,12 @@ string imap::connect()
 void imap::auth_login(const string& username, const string& password)
 {
     auto cmd = format("LOGIN " + username + TOKEN_SEPARATOR_STR + password);
-    _dlg->send(cmd);
+    send(cmd);
 
     bool has_more = true;
     while (has_more)
     {
-        string line = _dlg->receive();
+        string line = receive();
         tag_result_response_t parsed_line = parse_tag_result(line);
 
         if (parsed_line.tag == UNTAGGED_RESPONSE)
@@ -924,7 +916,7 @@ void imap::search(const string& conditions, list<unsigned long>& results, bool w
     if (want_uids)
         cmd.append("UID ");
     cmd.append("SEARCH " + conditions);
-    _dlg->send(format(cmd));
+    send(format(cmd));
 
     bool has_more = true;
     try
@@ -932,7 +924,7 @@ void imap::search(const string& conditions, list<unsigned long>& results, bool w
         while (has_more)
         {
             reset_response_parser();
-            string line = _dlg->receive();
+            string line = receive();
             tag_result_response_t parsed_line = parse_tag_result(line);
             if (parsed_line.tag == UNTAGGED_RESPONSE)
             {
@@ -983,11 +975,11 @@ string imap::folder_delimiter()
     {
         if (_folder_delimiter.empty())
         {
-            _dlg->send(format("LIST " + QUOTED_STRING_SEPARATOR + QUOTED_STRING_SEPARATOR + TOKEN_SEPARATOR_STR + QUOTED_STRING_SEPARATOR + QUOTED_STRING_SEPARATOR));
+            send(format("LIST " + QUOTED_STRING_SEPARATOR + QUOTED_STRING_SEPARATOR + TOKEN_SEPARATOR_STR + QUOTED_STRING_SEPARATOR + QUOTED_STRING_SEPARATOR));
             bool has_more = true;
             while (has_more)
             {
-                string line = _dlg->receive();
+                string line = receive();
                 tag_result_response_t parsed_line = parse_tag_result(line);
                 if (parsed_line.tag == UNTAGGED_RESPONSE && _folder_delimiter.empty())
                 {
@@ -1326,10 +1318,39 @@ list<shared_ptr<imap::response_token_t>>* imap::find_last_token_list(list<shared
 }
 
 
-imaps::imaps(const string& hostname, unsigned port, milliseconds timeout) : imap(hostname, port, timeout)
+imapp::imapp(const std::string& hostname, unsigned port, std::chrono::milliseconds timeout):
+ _dlg(hostname, port, timeout)
 {
+
 }
 
+imapp::~imapp()
+{
+    try
+    {
+        _dlg.send(format("LOGOUT"));
+    }
+    catch (...)
+    {
+    }
+}
+
+
+void imapp::send(const std::string& line)
+{
+    _dlg.send(line);
+}
+
+std::string imapp::receive(bool raw)
+{
+    return _dlg.receive(raw);
+}
+
+imaps::imaps(const std::string& hostname, unsigned port, std::chrono::milliseconds timeout)
+: imapp(hostname, port, timeout)
+{
+
+}
 
 string imaps::authenticate(const string& username, const string& password, auth_method_t method)
 {
@@ -1352,8 +1373,8 @@ string imaps::authenticate(const string& username, const string& password, auth_
 
 void imaps::start_tls()
 {
-    _dlg->send(format("STARTTLS"));
-    string line = _dlg->receive();
+    send(format("STARTTLS"));
+    string line = receive();
     tag_result_response_t parsed_line = parse_tag_result(line);
     if (parsed_line.tag == UNTAGGED_RESPONSE)
         throw imap_error("Bad server response.");
@@ -1366,7 +1387,7 @@ void imaps::start_tls()
 
 void imaps::switch_to_ssl()
 {
-    _dlg = std::make_shared<dialog_ssl>(*_dlg);
+    _dlg = dialog_ssl(_dlg);
 }
 
 

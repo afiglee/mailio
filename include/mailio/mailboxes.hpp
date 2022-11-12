@@ -47,6 +47,8 @@ struct MAILIO_EXPORT mail_address
     **/
     mail_address() = default;
 
+    mail_address(const mail_address&) = default;
+
     /**
     Setting a mail name and address.
 

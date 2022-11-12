@@ -18,6 +18,7 @@ copy at http://www.freebsd.org/copyright/freebsd-license.html.
 #include <mailio/imap.hpp>
 
 
+using mailio::imapp;
 using mailio::imap;
 using mailio::imap_error;
 using mailio::dialog_error;
@@ -30,7 +31,7 @@ int main()
     try
     {
         // use a server with plain (non-SSL) connectivity
-        imap conn("imap.mailserver.com", 143);
+        imapp conn("imap.mailserver.com", 143);
         // modify to use real account
         conn.authenticate("mailio@mailserver.com", "mailiopass", imap::auth_method_t::LOGIN);
         // remove first message from mailbox
